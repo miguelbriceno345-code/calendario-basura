@@ -1,882 +1,230 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calendario de basura</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0a0c">
+<title>Tareas Apartamento 15</title>
+<style>
+  :root {
+    --bg: #0a0a0c; --card: #151518; --panel: #1c1c20; --field: #121215; --line: #2a2a30;
+    --text: #f4f4f6; --muted: #9b9ba5; --box: #5b5b65;
+    --blue: #4da3ff; --blue-bg: rgba(77, 163, 255, .12);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .app { max-width: 680px; margin: 0 auto; padding: 28px 16px 40px; }
+  header { text-align: center; margin-bottom: 22px; }
+  h1 { font-size: 1.7rem; letter-spacing: -.02em; }
+  .sub { color: var(--muted); font-size: .9rem; margin-top: 6px; }
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
+  #calendario { display: grid; gap: 16px; }
+  .semana { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  h2 { font-size: 1rem; font-weight: 600; }
+  .dia { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 12px; }
+  .dia-top { display: flex; justify-content: space-between; align-items: baseline; }
+  h3 { font-size: 1.05rem; }
+  .dia-top span, .grupo-top span { color: var(--muted); font-size: .9rem; }
+  .grupo { margin-top: 10px; }
+  .grupo + .grupo { padding-top: 12px; border-top: 1px solid var(--line); }
+  .grupo-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .grupo-top b { letter-spacing: .04em; text-align: right; }
+  .checks { display: grid; gap: 8px; margin-top: 8px; }
 
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #111;
-      color: #f5f5f5;
-      padding: 20px;
-      padding-bottom: 40px;
-    }
+  /* Casillas: grises; al marcar, contorno y texto azules */
+  .check { position: relative; display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .check input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .pill {
+    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px;
+    background: var(--field); border: 1.5px solid var(--line); border-radius: 12px;
+    color: var(--muted); user-select: none; transition: .15s;
+  }
+  .box { position: relative; flex: none; width: 20px; height: 20px; border: 2px solid var(--box); border-radius: 6px; transition: .15s; }
+  .box::after {
+    content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px;
+    border: solid var(--blue); border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0); transition: transform .15s;
+  }
+  .check input:checked + .pill { color: var(--blue); border-color: var(--blue); background: var(--blue-bg); }
+  .check input:checked + .pill .box { border-color: var(--blue); }
+  .check input:checked + .pill .box::after { transform: rotate(45deg) scale(1); }
+  .check input:focus-visible + .pill { outline: 2px solid var(--text); outline-offset: 2px; }
 
-    .container {
-      width: 100%;
-      max-width: 680px;
-      margin: 0 auto;
-    }
+  .estado { color: var(--muted); font-size: .8rem; margin-top: 8px; }
+  .estado.error { color: #ff8a8a; }
 
-    h1 {
-      text-align: center;
-      margin: 5px 0 8px;
-      font-size: 30px;
-    }
-
-    .subtitulo {
-      text-align: center;
-      color: #aaa;
-      margin-bottom: 25px;
-      font-size: 14px;
-    }
-
-    .semana {
-      background: #1b1b1b;
-      border: 1px solid #333;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 18px;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
-      scroll-margin-top: 20px;
-    }
-
-    .semana h2 {
-      margin: 0 0 12px;
-      font-size: 20px;
-    }
-
-    .aviso {
-      background: #2b2020;
-      border: 1px solid #633;
-      color: #ffd5d5;
-      padding: 12px;
-      border-radius: 10px;
-      margin-bottom: 14px;
-      font-size: 14px;
-      line-height: 1.4;
-    }
-
-    .dia {
-      border-top: 1px solid #2d2d2d;
-      padding: 14px 0;
-    }
-
-    .dia:first-of-type {
-      border-top: none;
-      padding-top: 4px;
-    }
-
-    .dia-titulo {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 9px;
-    }
-
-    .dia-nombre {
-      font-weight: bold;
-      font-size: 16px;
-    }
-
-    .encargado {
-      font-size: 13px;
-      color: #aaa;
-      text-align: right;
-    }
-
-    .tarea {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      margin: 8px 0;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .tarea input {
-      display: none;
-    }
-
-    .check {
-      width: 22px;
-      height: 22px;
-      min-width: 22px;
-      border: 2px solid #777;
-      border-radius: 6px;
-      position: relative;
-      transition: 0.15s ease;
-      background: #151515;
-    }
-
-    .tarea input:checked + .check {
-      background: #4caf50;
-      border-color: #4caf50;
-    }
-
-    .tarea input:checked + .check::after {
-      content: "✓";
-      position: absolute;
-      left: 3px;
-      top: -2px;
-      color: white;
-      font-size: 18px;
-      font-weight: bold;
-    }
-
-    .texto-tarea {
-      font-size: 15px;
-      line-height: 1.3;
-    }
-
-    .tarea input:checked ~ .texto-tarea {
-      text-decoration: line-through;
-      color: #777;
-    }
-
-    .estado {
-      text-align: center;
-      color: #777;
-      font-size: 12px;
-      margin-top: 15px;
-    }
-
-    @media (min-width: 800px) {
-      .container {
-        max-width: 980px;
-      }
-
-      .semana {
-        padding: 20px;
-      }
-    }
-  </style>
+  @media (min-width: 900px) {
+    .app { max-width: 980px; }
+    #calendario { grid-template-columns: 1fr 1fr; align-items: start; }
+  }
+</style>
 </head>
-
 <body>
-
-  <div class="container">
-
-    <h1>Calendario de basura</h1>
-
-    <div class="subtitulo">
-      Cada persona marca su tarea cuando ya la realizó.
-    </div>
-
-    <div id="calendario"></div>
-
-    <div class="estado" id="estado">
-      Conectando...
-    </div>
-
-  </div>
-
-  <script type="module">
-
-    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-
-
-    /* =========================================================
-       SUPABASE
-       ========================================================= */
-
-    const SUPABASE_URL = "https://irlgbidgxlbtocwrdmkd.supabase.co";
-
-    const SUPABASE_KEY =
-      "sb_publishable_S7aoT2t9KrmjqMnhvwhGkw_RHxJ8kMX";
-
-    const supabase = createClient(
-      SUPABASE_URL,
-      SUPABASE_KEY
-    );
-
-
-    /* =========================================================
-       CONFIGURACIÓN
-       ========================================================= */
-
-    const NAMES = [
-      "MIGUEL",
-      "ADONIS",
-      "VALERIA",
-      "KEYLA"
-    ];
-
-    const START_DATE = "2026-10-05";
-    const END_DATE = "2030-12-31";
-
-    const DEADLINE = "11:00 a.m.";
-
-    const DAY_NAMES = [
-      "Lunes",
-      "Martes",
-      "Miércoles",
-      "Jueves",
-      "Viernes",
-      "Sábado",
-      "Domingo"
-    ];
-
-    const TRASH_TASKS = {
-      0: [
-        ["sacada", "Basura sacada"]
-      ],
-
-      3: [
-        ["sacada", "Basura sacada"],
-        ["reciclaje", "Reciclaje sacado"],
-        ["lavado", "Basurero lavado"]
-      ]
-    };
-
-    const CLEAN_DAYS = [
-      0,
-      2,
-      4
-    ];
-
-    const CLEAN_TASK = [
-      "limpieza",
-      "Barrer y limpiar"
-    ];
-
-    const SPECIAL = {
-      weeks: [
-        "2026-10-05",
-        "2026-10-12"
-      ],
-      name: "VALERIA",
-      text: "VALERIA - ESTA SEMANA NO PORQUE ESTA TRISTE"
-    };
-
-
-    /* =========================================================
-       PERSONAS PARA LAS DOS SEMANAS ESPECIALES
-       ========================================================= */
-
-    const SPECIAL_NAMES = NAMES.filter(
-      name => name !== SPECIAL.name
-    );
-
-
-    /* =========================================================
-       VARIABLES
-       ========================================================= */
-
-    const calendario =
-      document.getElementById("calendario");
-
-    const estado =
-      document.getElementById("estado");
-
-    let semanas = [];
-
-    let marcadas = new Set();
-
-
-    /* =========================================================
-       FECHAS
-       ========================================================= */
-
-    function fechaLocal(date) {
-
-      const year =
-        date.getFullYear();
-
-      const month =
-        String(date.getMonth() + 1)
-          .padStart(2, "0");
-
-      const day =
-        String(date.getDate())
-          .padStart(2, "0");
-
-      return `${year}-${month}-${day}`;
-    }
-
-
-    function crearFecha(fecha) {
-
-      const [y, m, d] =
-        fecha.split("-").map(Number);
-
-      return new Date(
-        y,
-        m - 1,
-        d
-      );
-    }
-
-
-    function sumarDias(date, cantidad) {
-
-      const nueva =
-        new Date(date);
-
-      nueva.setDate(
-        nueva.getDate() + cantidad
-      );
-
-      return nueva;
-    }
-
-
-    function formatearFecha(date) {
-
-      return date.toLocaleDateString(
-        "es-CR",
-        {
-          day: "2-digit",
-          month: "2-digit",
-          year: "numeric"
-        }
-      );
-    }
-
-
-    /* =========================================================
-       GENERAR SEMANAS
-       ========================================================= */
-
-    function generarSemanas() {
-
-      semanas = [];
-
-      let inicio =
-        crearFecha(START_DATE);
-
-      const final =
-        crearFecha(END_DATE);
-
-      let indiceSemana = 0;
-
-      while (inicio <= final) {
-
-        const fin =
-          sumarDias(inicio, 6);
-
-        semanas.push({
-          inicio: new Date(inicio),
-          fin: new Date(fin),
-          indice: indiceSemana
-        });
-
-        inicio =
-          sumarDias(inicio, 7);
-
-        indiceSemana++;
+<main class="app">
+  <header>
+    <h1>Tareas Apartamento 15</h1>
+    <p class="sub" id="sub"></p>
+    <p class="estado" id="estado">Conectando...</p>
+  </header>
+  <section id="calendario"></section>
+</main>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+/* ===== SUPABASE (base de datos compartida) ===== */
+const SUPABASE_URL = "https://irlgbidgxlbtocwrdmkd.supabase.co";
+const SUPABASE_KEY = "sb_publishable_S7aoT2t9KrmjqMnhvwhGkw_RHxJ8kMX";
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ===== CONFIGURACIÓN ===== */
+const NAMES = ["MIGUEL", "ADONIS", "VALERIA", "KEYLA"];
+const START_DATE = "2026-10-05";   // lunes de la semana 1
+const END_DATE = "2030-12-31";
+const DEADLINE = "11:00 a.m.";
+const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+const TRASH_TASKS = {              // día (0 = lunes) -> casillas [id, texto]
+  0: [["sacada", "Basura sacada"]],
+  3: [["sacada", "Basura sacada"], ["reciclaje", "Reciclaje sacado"], ["lavado", "Basurero lavado"]]
+};
+const CLEAN_DAYS = [0, 2, 4];      // lunes, miércoles y viernes
+const CLEAN_TASK = ["limpieza", "Barrer y limpiar"];
+
+/* En estas semanas (lunes de cada una) esa persona queda fuera de la rotación */
+const SPECIAL = { weeks: ["2026-10-05", "2026-10-12"], name: "VALERIA" };
+const SPECIAL_NAMES = NAMES.filter(n => n !== SPECIAL.name);
+
+/* ===== VARIABLES ===== */
+const calendario = document.getElementById("calendario");
+const estado = document.getElementById("estado");
+let semanas = [];
+let marcadas = new Set();
+let guardando = 0;
+const mostrar = (txt, error = false) => { estado.textContent = txt; estado.classList.toggle("error", error); };
+const detalle = e => [e.code, e.message || e].filter(Boolean).join(" - ");
+
+/* ===== FECHAS ===== */
+const pad = n => String(n).padStart(2, "0");
+const fechaLocal = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const crearFecha = f => { const [y, m, d] = f.split("-").map(Number); return new Date(y, m - 1, d); };
+const sumarDias = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const formatearFecha = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+function generarSemanas() {
+  const final = crearFecha(END_DATE);
+  for (let inicio = crearFecha(START_DATE), i = 0; inicio <= final; inicio = sumarDias(inicio, 7), i++) {
+    semanas.push({ inicio, fin: sumarDias(inicio, 6), indice: i });
+  }
+}
+
+/* ===== ENCARGADOS ===== */
+const personas = s => (SPECIAL.weeks.includes(fechaLocal(s.inicio)) ? SPECIAL_NAMES : NAMES);
+const encargadoBasura = s => personas(s)[s.indice % personas(s).length];
+const encargadoLimpieza = (s, pos) => personas(s)[(s.indice + 1 + pos) % personas(s).length];
+
+/* ===== SUPABASE: cargar y guardar ===== */
+const crearClave = (fecha, tipo, tarea) => `${fecha}|${tipo}|${tarea}`;
+
+async function cargarMarcadas(primera = false) {
+  if (primera) mostrar("Sincronizando...");
+  const { data, error } = await supabase.from("calendario_basura").select("clave, marcada");
+  if (error) {
+    console.error(error);
+    mostrar("Error de conexión con la base de datos: " + detalle(error), true);
+    return;
+  }
+  if (guardando) return;   // no pisar un cambio que todavía se está guardando
+  marcadas = new Set((data || []).filter(i => i.marcada === true).map(i => i.clave));
+  mostrar("Sincronizado");
+  actualizarCheckboxes();
+}
+
+async function cambiarEstado(clave, marcada) {
+  guardando++;
+  try {
+    const { error } = marcada
+      ? await supabase.from("calendario_basura").upsert({ clave, marcada: true }, { onConflict: "clave" })
+      : await supabase.from("calendario_basura").delete().eq("clave", clave);
+    if (error) throw error;
+    if (marcada) marcadas.add(clave); else marcadas.delete(clave);
+    mostrar("Guardado");
+  } catch (e) {
+    console.error(e);
+    if (marcada) marcadas.delete(clave); else marcadas.add(clave);
+    actualizarCheckboxes();
+    mostrar("No se pudo guardar el cambio: " + detalle(e), true);
+    alert("No se pudo guardar el cambio.\n" + detalle(e));
+  } finally {
+    guardando--;
+  }
+}
+
+function actualizarCheckboxes() {
+  document.querySelectorAll("input[data-clave]").forEach(i => { i.checked = marcadas.has(i.dataset.clave); });
+}
+
+/* ===== VISTAS ===== */
+function crearTarea(fecha, tipo, id, texto) {
+  const clave = crearClave(fecha, tipo, id);
+  const label = document.createElement("label");
+  label.className = "check";
+  label.innerHTML = `<input type="checkbox" data-clave="${clave}"><span class="pill"><span class="box"></span>${texto}</span>`;
+  const input = label.firstChild;
+  input.checked = marcadas.has(clave);
+  input.addEventListener("change", () => cambiarEstado(clave, input.checked));
+  return label;
+}
+
+/* Un grupo = tipo de tarea + responsable (el nombre se muestra una sola vez) + sus casillas */
+function crearGrupo(titulo, nombre, fecha, tipo, tareas) {
+  const g = document.createElement("div");
+  g.className = "grupo";
+  g.innerHTML = `<div class="grupo-top"><span>${titulo}</span><b>${nombre}</b></div><div class="checks"></div>`;
+  tareas.forEach(([id, texto]) => g.lastChild.appendChild(crearTarea(fecha, tipo, id, texto)));
+  return g;
+}
+
+function renderCalendario() {
+  const hoy = fechaLocal(new Date());
+  calendario.innerHTML = "";
+  semanas.forEach(s => {
+    if (fechaLocal(s.fin) < hoy) return;   // las semanas que ya pasaron no se muestran
+    const sec = document.createElement("section");
+    sec.className = "semana";
+    sec.innerHTML = `<h2>Semana del ${formatearFecha(s.inicio)} al ${formatearFecha(s.fin)}</h2>`;
+    for (let d = 0; d < 7; d++) {
+      const fecha = sumarDias(s.inicio, d), f = fechaLocal(fecha);
+      const grupos = [];
+      if (TRASH_TASKS[d]) grupos.push(crearGrupo("Basura", encargadoBasura(s), f, "basura", TRASH_TASKS[d]));
+      if (CLEAN_DAYS.includes(d)) {
+        grupos.push(crearGrupo("Limpieza de abajo", encargadoLimpieza(s, CLEAN_DAYS.indexOf(d)), f, "limpieza", [CLEAN_TASK]));
       }
+      if (!grupos.length) continue;   // solo días con tareas
+      const dia = document.createElement("div");
+      dia.className = "dia";
+      dia.innerHTML = `<div class="dia-top"><h3>${DAY_NAMES[d]}</h3><span>${formatearFecha(fecha)}</span></div>`;
+      grupos.forEach(g => dia.appendChild(g));
+      sec.appendChild(dia);
     }
-
-
-    /* =========================================================
-       ENCARGADO DE BASURA
-       ========================================================= */
-
-    function obtenerEncargadoBasura(indice) {
-
-      const fecha =
-        fechaLocal(
-          semanas[indice].inicio
-        );
-
-      const especial =
-        SPECIAL.weeks.includes(fecha);
-
-      if (especial) {
-
-        return SPECIAL_NAMES[
-          indice % SPECIAL_NAMES.length
-        ];
-      }
-
-      return NAMES[
-        indice % NAMES.length
-      ];
-    }
-
-
-    /* =========================================================
-       ENCARGADO DE LIMPIEZA
-       ========================================================= */
-
-    function obtenerEncargadoLimpieza(
-      indice,
-      posicion
-    ) {
-
-      const fecha =
-        fechaLocal(
-          semanas[indice].inicio
-        );
-
-      const especial =
-        SPECIAL.weeks.includes(fecha);
-
-      if (especial) {
-
-        return SPECIAL_NAMES[
-          (indice + 1 + posicion) %
-          SPECIAL_NAMES.length
-        ];
-      }
-
-      return NAMES[
-        (indice + 1 + posicion) %
-        NAMES.length
-      ];
-    }
-
-
-    /* =========================================================
-       CLAVES
-       ========================================================= */
-
-    function crearClave(
-      fecha,
-      tipo,
-      tarea
-    ) {
-
-      return `${fecha}|${tipo}|${tarea}`;
-    }
-
-
-    /* =========================================================
-       CARGAR DATOS DESDE SUPABASE
-       ========================================================= */
-
-    async function cargarMarcadas() {
-
-      estado.textContent =
-        "Sincronizando...";
-
-      const { data, error } =
-        await supabase
-          .from("calendario_basura")
-          .select("clave, marcada");
-
-      if (error) {
-
-        console.error(error);
-
-        estado.textContent =
-          "Error de conexión con la base de datos.";
-
-        return;
-      }
-
-      marcadas =
-        new Set(
-          (data || [])
-            .filter(
-              item => item.marcada === true
-            )
-            .map(
-              item => item.clave
-            )
-        );
-
-      estado.textContent =
-        "Sincronizado ✓";
-
-      actualizarCheckboxes();
-    }
-
-
-    /* =========================================================
-       GUARDAR CAMBIO
-       ========================================================= */
-
-    async function cambiarEstado(
-      clave,
-      marcada
-    ) {
-
-      if (marcada) {
-
-        marcadas.add(clave);
-
-        const { error } =
-          await supabase
-            .from("calendario_basura")
-            .upsert(
-              {
-                clave: clave,
-                marcada: true
-              },
-              {
-                onConflict: "clave"
-              }
-            );
-
-        if (error) {
-
-          console.error(error);
-
-          marcadas.delete(clave);
-
-          actualizarCheckboxes();
-
-          alert(
-            "No se pudo guardar el cambio."
-          );
-
-          return;
-        }
-
-      } else {
-
-        marcadas.delete(clave);
-
-        const { error } =
-          await supabase
-            .from("calendario_basura")
-            .delete()
-            .eq("clave", clave);
-
-        if (error) {
-
-          console.error(error);
-
-          marcadas.add(clave);
-
-          actualizarCheckboxes();
-
-          alert(
-            "No se pudo guardar el cambio."
-          );
-
-          return;
-        }
-      }
-
-      estado.textContent =
-        "Guardado ✓";
-    }
-
-
-    /* =========================================================
-       ACTUALIZAR CHECKBOXES
-       ========================================================= */
-
-    function actualizarCheckboxes() {
-
-      document
-        .querySelectorAll(
-          "input[data-clave]"
-        )
-        .forEach(input => {
-
-          const clave =
-            input.dataset.clave;
-
-          input.checked =
-            marcadas.has(clave);
-        });
-    }
-
-
-    /* =========================================================
-       CREAR TAREA
-       ========================================================= */
-
-    function crearTarea(
-      fecha,
-      tipo,
-      tareaId,
-      texto
-    ) {
-
-      const clave =
-        crearClave(
-          fecha,
-          tipo,
-          tareaId
-        );
-
-      const label =
-        document.createElement("label");
-
-      label.className =
-        "tarea";
-
-      label.innerHTML = `
-        <input
-          type="checkbox"
-          data-clave="${clave}"
-        >
-        <span class="check"></span>
-        <span class="texto-tarea">${texto}</span>
-      `;
-
-      const input =
-        label.querySelector(
-          "input"
-        );
-
-      input.checked =
-        marcadas.has(clave);
-
-      input.addEventListener(
-        "change",
-        () => {
-
-          cambiarEstado(
-            clave,
-            input.checked
-          );
-
-        }
-      );
-
-      return label;
-    }
-
-
-    /* =========================================================
-       MOSTRAR CALENDARIO
-       ========================================================= */
-
-    function renderCalendario() {
-
-      calendario.innerHTML = "";
-
-      semanas.forEach(
-        (semana, indice) => {
-
-          const semanaDiv =
-            document.createElement(
-              "section"
-            );
-
-          semanaDiv.className =
-            "semana";
-
-          semanaDiv.id =
-            `semana-${indice}`;
-
-
-          const fechaInicio =
-            fechaLocal(
-              semana.inicio
-            );
-
-          const especial =
-            SPECIAL.weeks.includes(
-              fechaInicio
-            );
-
-
-          semanaDiv.innerHTML = `
-            <h2>
-              Semana del
-              ${formatearFecha(
-                semana.inicio
-              )}
-              al
-              ${formatearFecha(
-                semana.fin
-              )}
-            </h2>
-          `;
-
-
-          /* =============================
-             AVISO ESPECIAL
-             ============================= */
-
-          if (especial) {
-
-            const aviso =
-              document.createElement(
-                "div"
-              );
-
-            aviso.className =
-              "aviso";
-
-            aviso.textContent =
-              SPECIAL.text;
-
-            semanaDiv.appendChild(
-              aviso
-            );
-          }
-
-
-          /* =============================
-             DÍAS
-             ============================= */
-
-          for (
-            let dia = 0;
-            dia < 7;
-            dia++
-          ) {
-
-            const fecha =
-              sumarDias(
-                semana.inicio,
-                dia
-              );
-
-            const fechaTexto =
-              fechaLocal(fecha);
-
-            const diaDiv =
-              document.createElement(
-                "div"
-              );
-
-            diaDiv.className =
-              "dia";
-
-
-            const titulo =
-              document.createElement(
-                "div"
-              );
-
-            titulo.className =
-              "dia-titulo";
-
-            titulo.innerHTML = `
-              <div class="dia-nombre">
-                ${DAY_NAMES[dia]}
-              </div>
-
-              <div class="encargado">
-                Hasta ${DEADLINE}
-              </div>
-            `;
-
-            diaDiv.appendChild(
-              titulo
-            );
-
-
-            /* =============================
-               BASURA
-               ============================= */
-
-            if (TRASH_TASKS[dia]) {
-
-              const encargado =
-                obtenerEncargadoBasura(
-                  indice
-                );
-
-              titulo.querySelector(
-                ".encargado"
-              ).textContent =
-                encargado;
-
-              TRASH_TASKS[dia]
-                .forEach(
-                  ([taskId, texto]) => {
-
-                    diaDiv.appendChild(
-                      crearTarea(
-                        fechaTexto,
-                        "basura",
-                        taskId,
-                        `${texto} — ${encargado}`
-                      )
-                    );
-
-                  }
-                );
-            }
-
-
-            /* =============================
-               LIMPIEZA
-               ============================= */
-
-            if (
-              CLEAN_DAYS.includes(dia)
-            ) {
-
-              const posicion =
-                CLEAN_DAYS.indexOf(dia);
-
-              const encargado =
-                obtenerEncargadoLimpieza(
-                  indice,
-                  posicion
-                );
-
-              diaDiv.appendChild(
-                crearTarea(
-                  fechaTexto,
-                  "limpieza",
-                  CLEAN_TASK[0],
-                  `${CLEAN_TASK[1]} — ${encargado}`
-                )
-              );
-            }
-
-
-            /* Solo mostrar días
-               que tengan tareas */
-
-            if (
-              diaDiv.querySelector(
-                "input"
-              )
-            ) {
-
-              semanaDiv.appendChild(
-                diaDiv
-              );
-            }
-          }
-
-
-          calendario.appendChild(
-            semanaDiv
-          );
-        }
-      );
-
-      actualizarCheckboxes();
-    }
-
-
-    /* =========================================================
-       SINCRONIZACIÓN AUTOMÁTICA
-       ========================================================= */
-
-    setInterval(
-      async () => {
-
-        await cargarMarcadas();
-
-      },
-      2000
-    );
-
-
-    /* =========================================================
-       INICIAR
-       ========================================================= */
-
-    generarSemanas();
-
-    renderCalendario();
-
-    cargarMarcadas();
-
-  </script>
-
+    calendario.appendChild(sec);
+  });
+  actualizarCheckboxes();
+}
+
+/* ===== INICIAR ===== */
+document.getElementById("sub").textContent =
+  "Horario máximo para sacar la basura: " +
+  Object.keys(TRASH_TASKS).map(d => `${DAY_NAMES[d]} a las ${DEADLINE}`).join(" y ");
+
+generarSemanas();
+renderCalendario();
+cargarMarcadas(true);
+setInterval(cargarMarcadas, 2000);   // sincronización automática entre todos
+</script>
 </body>
 </html>
