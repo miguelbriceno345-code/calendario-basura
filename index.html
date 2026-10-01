@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0a0c">
+<title>Calendario de basura</title>
+<style>
+  :root {
+    --bg: #0a0a0c;
+    --card: #151518;
+    --panel: #1c1c20;
+    --field: #121215;
+    --line: #2a2a30;
+    --text: #f4f4f6;
+    --muted: #9b9ba5;
+    --box: #5b5b65;
+    --blue: #4da3ff;
+    --blue-bg: rgba(77, 163, 255, .12);
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .app { max-width: 680px; margin: 0 auto; padding: 28px 16px 0; }
+  h1 { font-size: 1.7rem; letter-spacing: -.02em; }
+  .sub, .range { color: var(--muted); font-size: .9rem; }
+  .sub { margin-top: 4px; }
+  .range { margin: 18px 0 12px; }
+
+  #list { display: grid; gap: 16px; }
+  .week { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  .week.now { border-color: #50505a; }
+  .week-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  h2 { font-size: 1rem; font-weight: 600; }
+  .tag { font-size: .72rem; background: #2a2a30; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+  .label { color: var(--muted); font-size: .85rem; margin-top: 14px; }
+  .owner { font-size: 1.6rem; font-weight: 700; letter-spacing: .05em; }
+
+  .day { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 12px; }
+  .day-top { display: flex; justify-content: space-between; align-items: baseline; }
+  h3 { font-size: 1.05rem; }
+  .day-top span, .note, .who { color: var(--muted); font-size: .9rem; }
+  .who { margin-top: 8px; }
+  .who b { color: var(--text); letter-spacing: .04em; }
+
+  /* Checkboxes personalizados */
+  .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
+  .check { position: relative; display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .check input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  .pill {
+    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px;
+    background: var(--field); border: 1.5px solid var(--line); border-radius: 12px;
+    color: var(--muted); user-select: none; transition: .15s;
+  }
+  .box { position: relative; flex: none; width: 20px; height: 20px; border: 2px solid var(--box); border-radius: 6px; transition: .15s; }
+  .box::after {
+    content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px;
+    border: solid var(--blue); border-width: 0 2px 2px 0;
+    transform: rotate(45deg) scale(0); transition: transform .15s;
+  }
+  .check input:checked + .pill { color: var(--blue); border-color: var(--blue); background: var(--blue-bg); }
+  .check input:checked + .pill .box { border-color: var(--blue); }
+  .check input:checked + .pill .box::after { transform: rotate(45deg) scale(1); }
+  .check input:focus-visible + .pill { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  /* Navegación */
+  .nav {
+    position: sticky; bottom: 0; display: flex; gap: 8px; margin: 16px -16px 0; padding: 12px 16px;
+    background: rgba(10, 10, 12, .95); border-top: 1px solid var(--line);
+  }
+  .nav button {
+    flex: 1; padding: 13px 8px; font: inherit; color: var(--text); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+  }
+  .nav button:hover:not(:disabled) { border-color: var(--box); }
+  .nav button:disabled { opacity: .35; cursor: default; }
+  .nav button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+  @media (min-width: 900px) {
+    .app { max-width: 980px; }
+    #list { grid-template-columns: 1fr 1fr; align-items: start; }
+  }
+</style>
+</head>
+<body>
+<main class="app">
+  <header>
+    <h1>Calendario de basura</h1>
+    <p class="sub" id="sub"></p>
+  </header>
+  <p class="range" id="range"></p>
+  <section id="list"></section>
+  <nav class="nav" aria-label="Navegación entre semanas">
+    <button id="prev" type="button">Anterior</button>
+    <button id="today" type="button">Hoy</button>
+    <button id="next" type="button">Siguiente</button>
+  </nav>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ========== CONFIGURACIÓN: edita solo esta parte ========== */
+  const NAMES = ["MIGUEL", "ADONIS", "VALERIA", "KEYLA"]; // orden de la rotación semanal
+  const START_DATE = "2026-10-05";   // lunes de la semana 1 (le toca al primer nombre)
+  const END_DATE = "2030-12-31";     // último día del calendario
+  const PICKUPS = [                  // días de recolección (offset = días desde el lunes)
+    { label: "Lunes", offset: 0 },
+    { label: "Jueves", offset: 3 }
+  ];
+  const DEADLINE = "11:00 a.m.";
+  const WEEKS_PER_PAGE = 4;          // semanas visibles por pantalla
+  const STORAGE_KEY = "calendario-basura-v1";
+  /* ========================================================== */
+
+  /* ---------- Fechas ---------- */
+  const pad = n => String(n).padStart(2, "0");
+  const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fmt = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  /* ---------- Semanas (lunes a domingo) con su responsable ---------- */
+  const weeks = [];
+  const first = parse(START_DATE);
+  let monday = addDays(first, -((first.getDay() + 6) % 7));
+  for (let i = 0; iso(monday) <= END_DATE; i++, monday = addDays(monday, 7)) {
+    weeks.push({
+      start: monday,
+      end: addDays(monday, 6),
+      owner: NAMES[i % NAMES.length],
+      days: PICKUPS.map(p => ({ label: p.label, date: addDays(monday, p.offset) }))
+                   .filter(d => iso(d.date) <= END_DATE)
+    });
+  }
+
+  /* ---------- Almacenamiento local ---------- */
+  const load = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { return {}; } };
+  const persist = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch (e) {} };
+  let saved = load();
+
+  /* ---------- Vistas ---------- */
+  const check = (key, text) =>
+    `<label class="check"><input type="checkbox" data-key="${key}"${saved[key] ? " checked" : ""}>` +
+    `<span class="pill"><span class="box"></span>${text}</span></label>`;
+
+  const day = (d, owner) => {
+    const id = iso(d.date);
+    return `
+      <section class="day">
+        <div class="day-top"><h3>${d.label}</h3><span>${fmt(d.date)}</span></div>
+        <p class="note">Antes de las ${DEADLINE}</p>
+        <p class="who">Responsable: <b>${esc(owner)}</b></p>
+        <div class="checks">
+          ${check(id + ":sacada", "Basura sacada")}
+          ${check(id + ":lavado", "Basurero lavado")}
+        </div>
+      </section>`;
+  };
+
+  const card = (w, today) => {
+    const now = today >= iso(w.start) && today <= iso(w.end);
+    return `
+      <article class="week${now ? " now" : ""}">
+        <div class="week-top">
+          <h2>Semana del ${fmt(w.start)} al ${fmt(w.end)}</h2>
+          ${now ? '<span class="tag">Semana actual</span>' : ""}
+        </div>
+        <p class="label">Responsable:</p>
+        <p class="owner">${esc(w.owner)}</p>
+        ${w.days.map(d => day(d, w.owner)).join("")}
+      </article>`;
+  };
+
+  /* ---------- Navegación ---------- */
+  const $ = id => document.getElementById(id);
+  const list = $("list"), range = $("range"), prev = $("prev"), next = $("next");
+
+  const currentWeek = () => {
+    const t = iso(new Date());
+    const i = weeks.findIndex(w => t <= iso(w.end));
+    return i < 0 ? Math.max(0, weeks.length - WEEKS_PER_PAGE) : i;
+  };
+  let offset = currentWeek();
+
+  function render() {
+    const today = iso(new Date());
+    const page = weeks.slice(offset, offset + WEEKS_PER_PAGE);
+    list.innerHTML = page.map(w => card(w, today)).join("");
+    range.textContent = `Mostrando del ${fmt(page[0].start)} al ${fmt(page[page.length - 1].end)}`;
+    prev.disabled = offset === 0;
+    next.disabled = offset + WEEKS_PER_PAGE >= weeks.length;
+  }
+
+  function go(i) {
+    offset = Math.max(0, Math.min(i, weeks.length - 1));
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  prev.onclick = () => go(offset - WEEKS_PER_PAGE);
+  next.onclick = () => go(offset + WEEKS_PER_PAGE);
+  $("today").onclick = () => go(currentWeek());
+
+  /* Guardar cada checkbox al instante */
+  list.addEventListener("change", e => {
+    const key = e.target.dataset.key;
+    if (!key) return;
+    if (e.target.checked) saved[key] = 1; else delete saved[key];
+    persist();
+  });
+
+  /* Sincronizar si se cambia desde otra pestaña */
+  window.addEventListener("storage", e => {
+    if (e.key === STORAGE_KEY) { saved = load(); render(); }
+  });
+
+  $("sub").textContent = `Recolección: ${PICKUPS.map(p => p.label).join(" y ")}, antes de las ${DEADLINE}`;
+  render();
+})();
+</script>
+</body>
+</html>
