@@ -30,6 +30,7 @@
   .sub, .range { color: var(--muted); font-size: .9rem; }
   .sub { margin-top: 4px; }
   .range { margin: 18px 0 12px; }
+  .warn { margin-top: 16px; padding: 12px 14px; font-size: .9rem; color: #e6c768; background: var(--panel); border: 1px solid #6b5a22; border-radius: 12px; }
 
   #list { display: grid; gap: 16px; }
   .week { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
@@ -37,18 +38,21 @@
   .week-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h2 { font-size: 1rem; font-weight: 600; }
   .tag { font-size: .72rem; background: #2a2a30; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
-  .label { color: var(--muted); font-size: .85rem; margin-top: 14px; }
-  .owner { font-size: 1.6rem; font-weight: 700; letter-spacing: .05em; }
+  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .label { color: var(--muted); font-size: .85rem; }
+  .owner { font-size: 1.3rem; font-weight: 700; letter-spacing: .05em; }
 
   .day { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 12px; }
   .day-top { display: flex; justify-content: space-between; align-items: baseline; }
   h3 { font-size: 1.05rem; }
-  .day-top span, .note, .who { color: var(--muted); font-size: .9rem; }
-  .who { margin-top: 8px; }
+  .day-top span, .who { color: var(--muted); font-size: .9rem; }
+  .task { margin-top: 10px; }
+  .task + .task { padding-top: 12px; border-top: 1px solid var(--line); }
+  .kind { font-size: .95rem; font-weight: 600; }
   .who b { color: var(--text); letter-spacing: .04em; }
 
   /* Checkboxes personalizados */
-  .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
+  .checks { display: grid; gap: 8px; margin-top: 10px; }
   .check { position: relative; display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .check input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
   .pill {
@@ -92,11 +96,10 @@
     <h1>Calendario de basura</h1>
     <p class="sub" id="sub"></p>
   </header>
+  <p class="warn" id="warn" hidden>Este navegador bloquea el guardado local (modo privado o vista previa). Abre la página en una pestaña normal para que las casillas se guarden.</p>
   <p class="range" id="range"></p>
   <section id="list"></section>
   <nav class="nav" aria-label="Navegación entre semanas">
-    <button id="prev" type="button">Anterior</button>
-    <button id="today" type="button">Hoy</button>
     <button id="next" type="button">Siguiente</button>
   </nav>
 </main>
@@ -106,123 +109,169 @@
   "use strict";
 
   /* ========== CONFIGURACIÓN: edita solo esta parte ========== */
-  const NAMES = ["MIGUEL", "ADONIS", "VALERIA", "KEYLA"]; // orden de la rotación semanal
+  const NAMES = ["MIGUEL", "ADONIS", "VALERIA", "KEYLA"]; // orden de la rotación semanal de la basura
   const START_DATE = "2026-10-05";   // lunes de la semana 1 (le toca al primer nombre)
   const END_DATE = "2030-12-31";     // último día del calendario
-  const PICKUPS = [                  // días de recolección (offset = días desde el lunes)
-    { label: "Lunes", offset: 0 },
-    { label: "Jueves", offset: 3 }
-  ];
   const DEADLINE = "11:00 a.m.";
-  const WEEKS_PER_PAGE = 4;          // semanas visibles por pantalla
+
+  const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  const TRASH_TASKS = {              // día de la semana (0 = lunes) -> casillas [id, texto]
+    0: [["sacada", "Basura sacada"]],
+    3: [["sacada", "Basura sacada"], ["reciclaje", "Reciclaje sacado también"], ["lavado", "Basurero lavado"]]
+  };
+  const CLEAN_DAYS = [0, 2, 4, 6];   // limpieza de abajo, día por medio: lunes, miércoles, viernes y domingo
+  const CLEAN_TASK = ["limpieza", "Barrer y limpiar"];
+  const CLEAN_SHIFT = 1;             // limpia el siguiente nombre de la lista (nunca el mismo que saca la basura)
+
+  const WEEKS_PER_STEP = 2;          // semanas visibles al inicio y cada vez que se pulsa "Siguiente"
   const STORAGE_KEY = "calendario-basura-v1";
   /* ========================================================== */
 
-  /* ---------- Fechas ---------- */
-  const pad = n => String(n).padStart(2, "0");
-  const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
-  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const fmt = d => `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-  const addDays = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  /* ---------- Fechas (días enteros, sin problemas de horario de verano) ---------- */
+  const DAY = 864e5;
+  const toNum = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d) / DAY; };
+  const toISO = n => new Date(n * DAY).toISOString().slice(0, 10);
+  const fmt = n => toISO(n).split("-").reverse().join("/");
+  const todayNum = () => { const t = new Date(); return Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) / DAY; };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  /* ---------- Semanas (lunes a domingo) con su responsable ---------- */
-  const weeks = [];
-  const first = parse(START_DATE);
-  let monday = addDays(first, -((first.getDay() + 6) % 7));
-  for (let i = 0; iso(monday) <= END_DATE; i++, monday = addDays(monday, 7)) {
-    weeks.push({
-      start: monday,
-      end: addDays(monday, 6),
-      owner: NAMES[i % NAMES.length],
-      days: PICKUPS.map(p => ({ label: p.label, date: addDays(monday, p.offset) }))
-                   .filter(d => iso(d.date) <= END_DATE)
-    });
-  }
+  const n0 = toNum(START_DATE);
+  const START = n0 - ((n0 + 3) % 7);            // se ajusta al lunes de esa semana
+  const END = toNum(END_DATE);
+  const LAST = Math.floor((END - START) / 7);   // índice de la última semana
+  const SHIFT = CLEAN_SHIFT % NAMES.length || 1;
+  const OFFSETS = [...new Set([...Object.keys(TRASH_TASKS).map(Number), ...CLEAN_DAYS])].sort((a, b) => a - b);
 
-  /* ---------- Almacenamiento local ---------- */
-  const load = () => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (e) { return {}; } };
-  const persist = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch (e) {} };
-  let saved = load();
+  /* Cada semana se calcula solo cuando se necesita (no se guarda el calendario completo) */
+  const weekAt = i => {
+    const mon = START + 7 * i;
+    return {
+      start: mon,
+      end: mon + 6,
+      trash: NAMES[i % NAMES.length],
+      clean: NAMES[(i + SHIFT) % NAMES.length],
+      days: OFFSETS.map(o => mon + o).filter(d => d <= END)
+    };
+  };
+
+  /* ---------- Almacenamiento ----------
+     1) Vista previa de Claude: usa su almacenamiento (ahí localStorage está bloqueado).
+     2) GitHub Pages o archivo abierto en el navegador: usa localStorage.
+     3) Si nada está disponible (modo privado, etc.), se muestra un aviso en pantalla. */
+  const hasHost = !!(window.storage && typeof window.storage.get === "function");
+  const hasLocal = !hasHost && (() => {
+    try { localStorage.setItem("__test", "1"); localStorage.removeItem("__test"); return true; }
+    catch (e) { return false; }
+  })();
+  let saved = {};
+  let queue = Promise.resolve();
+
+  const store = {
+    ok: hasHost || hasLocal,
+    async read() {
+      try {
+        if (hasHost) return JSON.parse((await window.storage.get(STORAGE_KEY, false)).value) || {};
+        if (hasLocal) return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      } catch (e) {}
+      return {};
+    },
+    write() {
+      if (hasHost) {
+        queue = queue.then(() => window.storage.set(STORAGE_KEY, JSON.stringify(saved), false)).catch(() => {});
+      } else if (hasLocal) {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch (e) {}
+      }
+    }
+  };
 
   /* ---------- Vistas ---------- */
   const check = (key, text) =>
     `<label class="check"><input type="checkbox" data-key="${key}"${saved[key] ? " checked" : ""}>` +
     `<span class="pill"><span class="box"></span>${text}</span></label>`;
 
-  const day = (d, owner) => {
-    const id = iso(d.date);
+  const task = (kind, owner, boxes, date) => `
+    <div class="task">
+      <p class="kind">${kind}</p>
+      <p class="who">Responsable: <b>${esc(owner)}</b></p>
+      <div class="checks">${boxes.map(([id, text]) => check(`${toISO(date)}:${id}`, text)).join("")}</div>
+    </div>`;
+
+  const day = (d, w) => {
+    const o = d - w.start;
     return `
       <section class="day">
-        <div class="day-top"><h3>${d.label}</h3><span>${fmt(d.date)}</span></div>
-        <p class="note">Antes de las ${DEADLINE}</p>
-        <p class="who">Responsable: <b>${esc(owner)}</b></p>
-        <div class="checks">
-          ${check(id + ":sacada", "Basura sacada")}
-          ${check(id + ":lavado", "Basurero lavado")}
-        </div>
+        <div class="day-top"><h3>${DAY_NAMES[o]}</h3><span>${fmt(d)}</span></div>
+        ${TRASH_TASKS[o] ? task(`Basura, antes de las ${DEADLINE}`, w.trash, TRASH_TASKS[o], d) : ""}
+        ${CLEAN_DAYS.includes(o) ? task("Limpieza de abajo", w.clean, [CLEAN_TASK], d) : ""}
       </section>`;
   };
 
   const card = (w, today) => {
-    const now = today >= iso(w.start) && today <= iso(w.end);
+    const now = today >= w.start && today <= w.end;
     return `
       <article class="week${now ? " now" : ""}">
         <div class="week-top">
           <h2>Semana del ${fmt(w.start)} al ${fmt(w.end)}</h2>
           ${now ? '<span class="tag">Semana actual</span>' : ""}
         </div>
-        <p class="label">Responsable:</p>
-        <p class="owner">${esc(w.owner)}</p>
-        ${w.days.map(d => day(d, w.owner)).join("")}
+        <div class="roles">
+          <div><p class="label">Responsable de basura:</p><p class="owner">${esc(w.trash)}</p></div>
+          <div><p class="label">Responsable de limpieza:</p><p class="owner">${esc(w.clean)}</p></div>
+        </div>
+        ${w.days.map(d => day(d, w)).join("")}
       </article>`;
   };
 
-  /* ---------- Navegación ---------- */
+  /* ---------- Navegación: solo hacia adelante; las semanas pasadas se eliminan ---------- */
   const $ = id => document.getElementById(id);
-  const list = $("list"), range = $("range"), prev = $("prev"), next = $("next");
-
-  const currentWeek = () => {
-    const t = iso(new Date());
-    const i = weeks.findIndex(w => t <= iso(w.end));
-    return i < 0 ? Math.max(0, weeks.length - WEEKS_PER_PAGE) : i;
-  };
-  let offset = currentWeek();
+  const list = $("list"), range = $("range"), next = $("next");
+  let first = 0, shown = WEEKS_PER_STEP;
 
   function render() {
-    const today = iso(new Date());
-    const page = weeks.slice(offset, offset + WEEKS_PER_PAGE);
-    list.innerHTML = page.map(w => card(w, today)).join("");
-    range.textContent = `Mostrando del ${fmt(page[0].start)} al ${fmt(page[page.length - 1].end)}`;
-    prev.disabled = offset === 0;
-    next.disabled = offset + WEEKS_PER_PAGE >= weeks.length;
+    const today = todayNum();
+    const last = Math.min(first + shown - 1, LAST);
+    let html = "";
+    for (let i = first; i <= last; i++) html += card(weekAt(i), today);
+    list.innerHTML = html;
+    range.textContent = `Mostrando del ${fmt(START + 7 * first)} al ${fmt(START + 7 * last + 6)}`;
+    next.disabled = last >= LAST;
   }
 
-  function go(i) {
-    offset = Math.max(0, Math.min(i, weeks.length - 1));
+  /* Calcula la semana actual, borra lo guardado de semanas pasadas y dibuja */
+  function refresh() {
+    first = Math.min(LAST, Math.max(0, Math.floor((todayNum() - START) / 7)));
+    const cutoff = toISO(START + 7 * first);
+    let dirty = false;
+    for (const k in saved) if (k.slice(0, 10) < cutoff) { delete saved[k]; dirty = true; }
+    if (dirty) store.write();
     render();
-    window.scrollTo(0, 0);
   }
 
-  prev.onclick = () => go(offset - WEEKS_PER_PAGE);
-  next.onclick = () => go(offset + WEEKS_PER_PAGE);
-  $("today").onclick = () => go(currentWeek());
+  next.onclick = () => {
+    const before = list.children.length;
+    shown += WEEKS_PER_STEP;
+    render();
+    if (list.children[before]) list.children[before].scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   /* Guardar cada checkbox al instante */
   list.addEventListener("change", e => {
     const key = e.target.dataset.key;
     if (!key) return;
     if (e.target.checked) saved[key] = 1; else delete saved[key];
-    persist();
+    store.write();
   });
 
-  /* Sincronizar si se cambia desde otra pestaña */
-  window.addEventListener("storage", e => {
-    if (e.key === STORAGE_KEY) { saved = load(); render(); }
-  });
+  /* Cargar lo guardado, sincronizar entre pestañas y actualizar al volver a la página */
+  const sync = () => store.read().then(d => { saved = d; refresh(); });
+  window.addEventListener("storage", e => { if (e.key === STORAGE_KEY) sync(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 
-  $("sub").textContent = `Recolección: ${PICKUPS.map(p => p.label).join(" y ")}, antes de las ${DEADLINE}`;
-  render();
+  const trashDays = Object.keys(TRASH_TASKS).map(o => DAY_NAMES[o]).join(" y ");
+  $("sub").textContent = `Basura: ${trashDays}, antes de las ${DEADLINE}`;
+  $("warn").hidden = store.ok;
+  refresh();  // muestra el calendario enseguida
+  sync();     // y aplica las casillas guardadas
 })();
 </script>
 </body>
