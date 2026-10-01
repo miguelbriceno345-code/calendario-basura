@@ -1,289 +1,831 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#0a0a0c">
-<title>Calendario de basura</title>
-<style>
-  :root {
-    --bg: #0a0a0c;
-    --card: #151518;
-    --panel: #1c1c20;
-    --field: #121215;
-    --line: #2a2a30;
-    --text: #f4f4f6;
-    --muted: #9b9ba5;
-    --box: #5b5b65;
-    --blue: #4da3ff;
-    --blue-bg: rgba(77, 163, 255, .12);
-  }
-  * { box-sizing: border-box; margin: 0; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  .app { max-width: 680px; margin: 0 auto; padding: 28px 16px 0; }
-  h1 { font-size: 1.7rem; letter-spacing: -.02em; }
-  .sub, .range { color: var(--muted); font-size: .9rem; }
-  .sub { margin-top: 4px; }
-  .range { margin: 18px 0 12px; }
-  .warn { margin-top: 16px; padding: 12px 14px; font-size: .9rem; color: #e6c768; background: var(--panel); border: 1px solid #6b5a22; border-radius: 12px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendario de basura</title>
 
-  #list { display: grid; gap: 16px; }
-  .week { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
-  .week.now { border-color: #50505a; }
-  .week-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  h2 { font-size: 1rem; font-weight: 600; }
-  .tag { font-size: .72rem; background: #2a2a30; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
-  .roles { margin-top: 14px; }
-  .label { color: var(--muted); font-size: .85rem; }
-  .owner { font-size: 1.6rem; font-weight: 700; letter-spacing: .05em; }
+  <style>
+    * {
+      box-sizing: border-box;
+    }
 
-  .day { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 12px; }
-  .day-top { display: flex; justify-content: space-between; align-items: baseline; }
-  h3 { font-size: 1.05rem; }
-  .day-top span, .who { color: var(--muted); font-size: .9rem; }
-  .task { margin-top: 10px; }
-  .task + .task { padding-top: 12px; border-top: 1px solid var(--line); }
-  .kind { font-size: .95rem; font-weight: 600; }
-  .who b { color: var(--text); letter-spacing: .04em; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #111;
+      color: #f5f5f5;
+      padding: 20px;
+      padding-bottom: 100px;
+    }
 
-  /* Checkboxes personalizados */
-  .checks { display: grid; gap: 8px; margin-top: 10px; }
-  .check { position: relative; display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .check input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
-  .pill {
-    display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px;
-    background: var(--field); border: 1.5px solid var(--line); border-radius: 12px;
-    color: var(--muted); user-select: none; transition: .15s;
-  }
-  .box { position: relative; flex: none; width: 20px; height: 20px; border: 2px solid var(--box); border-radius: 6px; transition: .15s; }
-  .box::after {
-    content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px;
-    border: solid var(--blue); border-width: 0 2px 2px 0;
-    transform: rotate(45deg) scale(0); transition: transform .15s;
-  }
-  .check input:checked + .pill { color: var(--blue); border-color: var(--blue); background: var(--blue-bg); }
-  .check input:checked + .pill .box { border-color: var(--blue); }
-  .check input:checked + .pill .box::after { transform: rotate(45deg) scale(1); }
-  .check input:focus-visible + .pill { outline: 2px solid var(--text); outline-offset: 2px; }
+    .container {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+    }
 
-  /* Navegación */
-  .nav {
-    position: sticky; bottom: 0; display: flex; gap: 8px; margin: 16px -16px 0; padding: 12px 16px;
-    background: rgba(10, 10, 12, .95); border-top: 1px solid var(--line);
-  }
-  .nav button {
-    flex: 1; padding: 13px 8px; font: inherit; color: var(--text); background: var(--panel);
-    border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
-  }
-  .nav button:hover:not(:disabled) { border-color: var(--box); }
-  .nav button:disabled { opacity: .35; cursor: default; }
-  .nav button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    h1 {
+      text-align: center;
+      margin: 5px 0 8px;
+      font-size: 30px;
+    }
 
-  @media (min-width: 900px) {
-    .app { max-width: 980px; }
-    #list { grid-template-columns: 1fr 1fr; align-items: start; }
-  }
-</style>
-</head>
-<body>
-<main class="app">
-  <header>
-    <h1>Calendario de basura</h1>
-    <p class="sub" id="sub"></p>
-  </header>
-  <p class="warn" id="warn" hidden>Este navegador bloquea el guardado local (modo privado o vista previa). Abre la página en una pestaña normal para que las casillas se guarden.</p>
-  <p class="range" id="range"></p>
-  <section id="list"></section>
-  <nav class="nav" aria-label="Navegación entre semanas">
-    <button id="next" type="button">Siguiente</button>
-  </nav>
-</main>
+    .subtitulo {
+      text-align: center;
+      color: #aaa;
+      margin-bottom: 25px;
+      font-size: 14px;
+    }
 
-<script>
-(() => {
-  "use strict";
+    .semana {
+      background: #1b1b1b;
+      border: 1px solid #333;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+      scroll-margin-top: 20px;
+    }
 
-  /* ========== CONFIGURACIÓN: edita solo esta parte ========== */
-  const NAMES = ["MIGUEL", "ADONIS", "VALERIA", "KEYLA"]; // orden de la rotación semanal de la basura
-  const START_DATE = "2026-10-05";   // lunes de la semana 1 (le toca al primer nombre)
-  const END_DATE = "2030-12-31";     // último día del calendario
-  const DEADLINE = "11:00 a.m.";
+    .semana h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
 
-  const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-  const TRASH_TASKS = {              // día de la semana (0 = lunes) -> casillas [id, texto]
-    0: [["sacada", "Basura sacada"]],
-    3: [["sacada", "Basura sacada"], ["reciclaje", "Reciclaje sacado"], ["lavado", "Basurero lavado"]]
-  };
-  // Limpieza de abajo, día por medio: una persona distinta por día, siempre las que NO sacan la basura esa semana.
-  // El orden rota cada semana (necesita menos días de limpieza que nombres).
-  const CLEAN_DAYS = [0, 2, 4];      // lunes, miércoles y viernes
-  const CLEAN_TASK = ["limpieza", "Barrer y limpiar"];
+    .aviso {
+      background: #2b2020;
+      border: 1px solid #633;
+      color: #ffd5d5;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
 
-  // Textos especiales: en las semanas indicadas (lunes de cada una) el nombre se muestra con otro texto
-  const SPECIAL = [
-    { weeks: ["2026-10-05", "2026-10-12"], name: "VALERIA", text: "VALERIA - ESTA SEMANA NO PORQUE ESTA TRISTE" }
-  ];
+    .dia {
+      border-top: 1px solid #2d2d2d;
+      padding: 14px 0;
+    }
 
-  const WEEKS_PER_STEP = 2;          // semanas visibles al inicio y cada vez que se pulsa "Siguiente"
-  const STORAGE_KEY = "calendario-basura-v1";
-  /* ========================================================== */
+    .dia:first-of-type {
+      border-top: none;
+      padding-top: 4px;
+    }
 
-  /* ---------- Fechas (días enteros, sin problemas de horario de verano) ---------- */
-  const DAY = 864e5;
-  const toNum = s => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d) / DAY; };
-  const toISO = n => new Date(n * DAY).toISOString().slice(0, 10);
-  const fmt = n => toISO(n).split("-").reverse().join("/");
-  const todayNum = () => { const t = new Date(); return Date.UTC(t.getFullYear(), t.getMonth(), t.getDate()) / DAY; };
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    .dia-titulo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 9px;
+    }
 
-  const n0 = toNum(START_DATE);
-  const START = n0 - ((n0 + 3) % 7);            // se ajusta al lunes de esa semana
-  const END = toNum(END_DATE);
-  const LAST = Math.floor((END - START) / 7);   // índice de la última semana
-  const OFFSETS = [...new Set([...Object.keys(TRASH_TASKS).map(Number), ...CLEAN_DAYS])].sort((a, b) => a - b);
+    .dia-nombre {
+      font-weight: bold;
+      font-size: 16px;
+    }
 
-  /* Cada semana se calcula solo cuando se necesita (no se guarda el calendario completo) */
-  const weekAt = i => {
-    const mon = START + 7 * i;
-    return {
-      start: mon,
-      end: mon + 6,
-      trash: NAMES[i % NAMES.length],
-      clean: CLEAN_DAYS.map((_, j) => NAMES[(i + 1 + j) % NAMES.length]),
-      days: OFFSETS.map(o => mon + o).filter(d => d <= END)
-    };
-  };
+    .encargado {
+      font-size: 13px;
+      color: #aaa;
+      text-align: right;
+    }
 
-  /* ---------- Almacenamiento ----------
-     1) Vista previa de Claude: usa su almacenamiento (ahí localStorage está bloqueado).
-     2) GitHub Pages o archivo abierto en el navegador: usa localStorage.
-     3) Si nada está disponible (modo privado, etc.), se muestra un aviso en pantalla. */
-  const hasHost = !!(window.storage && typeof window.storage.get === "function");
-  const hasLocal = !hasHost && (() => {
-    try { localStorage.setItem("__test", "1"); localStorage.removeItem("__test"); return true; }
-    catch (e) { return false; }
-  })();
-  let saved = {};
-  let queue = Promise.resolve();
+    .tarea {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin: 8px 0;
+      cursor: pointer;
+      user-select: none;
+    }
 
-  const store = {
-    ok: hasHost || hasLocal,
-    async read() {
-      try {
-        if (hasHost) return JSON.parse((await window.storage.get(STORAGE_KEY, false)).value) || {};
-        if (hasLocal) return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-      } catch (e) {}
-      return {};
-    },
-    write() {
-      if (hasHost) {
-        queue = queue.then(() => window.storage.set(STORAGE_KEY, JSON.stringify(saved), false)).catch(() => {});
-      } else if (hasLocal) {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(saved)); } catch (e) {}
+    .tarea input {
+      display: none;
+    }
+
+    .check {
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border: 2px solid #777;
+      border-radius: 6px;
+      position: relative;
+      transition: 0.15s ease;
+      background: #151515;
+    }
+
+    .tarea input:checked + .check {
+      background: #4caf50;
+      border-color: #4caf50;
+    }
+
+    .tarea input:checked + .check::after {
+      content: "✓";
+      position: absolute;
+      left: 3px;
+      top: -2px;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .texto-tarea {
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .tarea input:checked ~ .texto-tarea {
+      text-decoration: line-through;
+      color: #777;
+    }
+
+    .boton-siguiente {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(88%, 430px);
+      padding: 15px 20px;
+      border: none;
+      border-radius: 12px;
+      background: #f5f5f5;
+      color: #111;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.45);
+      z-index: 100;
+    }
+
+    .boton-siguiente:active {
+      transform: translateX(-50%) scale(0.98);
+    }
+
+    .estado {
+      text-align: center;
+      color: #777;
+      font-size: 12px;
+      margin-top: 15px;
+    }
+
+    @media (min-width: 800px) {
+      .container {
+        max-width: 980px;
+      }
+
+      .semana {
+        padding: 20px;
       }
     }
-  };
+  </style>
+</head>
 
-  /* ---------- Vistas ---------- */
-  const check = (key, text) =>
-    `<label class="check"><input type="checkbox" data-key="${key}"${saved[key] ? " checked" : ""}>` +
-    `<span class="pill"><span class="box"></span>${text}</span></label>`;
+<body>
 
-  /* Nombre a mostrar (con el texto especial si corresponde a esa semana) */
-  const shownName = (name, mon) => {
-    const s = SPECIAL.find(x => x.name === name && x.weeks.includes(toISO(mon)));
-    return esc(s ? s.text : name);
-  };
+  <div class="container">
 
-  const task = (kind, owner, boxes, date) => `
-    <div class="task">
-      <p class="kind">${kind}</p>
-      <p class="who">Responsable: <b>${owner}</b></p>
-      <div class="checks">${boxes.map(([id, text]) => check(`${toISO(date)}:${id}`, text)).join("")}</div>
-    </div>`;
+    <h1>Calendario de basura</h1>
 
-  const day = (d, w) => {
-    const o = d - w.start;
-    return `
-      <section class="day">
-        <div class="day-top"><h3>${DAY_NAMES[o]}</h3><span>${fmt(d)}</span></div>
-        ${TRASH_TASKS[o] ? task(`Basura, antes de las ${DEADLINE}`, shownName(w.trash, w.start), TRASH_TASKS[o], d) : ""}
-        ${CLEAN_DAYS.includes(o) ? task("Limpieza de abajo", shownName(w.clean[CLEAN_DAYS.indexOf(o)], w.start), [CLEAN_TASK], d) : ""}
-      </section>`;
-  };
+    <div class="subtitulo">
+      Cada persona marca su tarea cuando ya la realizó.
+    </div>
 
-  const card = (w, today) => {
-    const now = today >= w.start && today <= w.end;
-    return `
-      <article class="week${now ? " now" : ""}">
-        <div class="week-top">
-          <h2>Semana del ${fmt(w.start)} al ${fmt(w.end)}</h2>
-          ${now ? '<span class="tag">Semana actual</span>' : ""}
-        </div>
-        <div class="roles">
-          <p class="label">Responsable de basura:</p>
-          <p class="owner">${shownName(w.trash, w.start)}</p>
-        </div>
-        ${w.days.map(d => day(d, w)).join("")}
-      </article>`;
-  };
+    <div id="calendario"></div>
 
-  /* ---------- Navegación: solo hacia adelante; las semanas pasadas se eliminan ---------- */
-  const $ = id => document.getElementById(id);
-  const list = $("list"), range = $("range"), next = $("next");
-  let first = 0, shown = WEEKS_PER_STEP;
+    <div class="estado" id="estado">
+      Conectando...
+    </div>
 
-  function render() {
-    const today = todayNum();
-    const last = Math.min(first + shown - 1, LAST);
-    let html = "";
-    for (let i = first; i <= last; i++) html += card(weekAt(i), today);
-    list.innerHTML = html;
-    range.textContent = `Mostrando del ${fmt(START + 7 * first)} al ${fmt(START + 7 * last + 6)}`;
-    next.disabled = last >= LAST;
-  }
+  </div>
 
-  /* Calcula la semana actual, borra lo guardado de semanas pasadas y dibuja */
-  function refresh() {
-    first = Math.min(LAST, Math.max(0, Math.floor((todayNum() - START) / 7)));
-    const cutoff = toISO(START + 7 * first);
-    let dirty = false;
-    for (const k in saved) if (k.slice(0, 10) < cutoff) { delete saved[k]; dirty = true; }
-    if (dirty) store.write();
-    render();
-  }
+  <button class="boton-siguiente" id="btnSiguiente">
+    Siguiente
+  </button>
 
-  next.onclick = () => {
-    const before = list.children.length;
-    shown += WEEKS_PER_STEP;
-    render();
-    if (list.children[before]) list.children[before].scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  <script type="module">
 
-  /* Guardar cada checkbox al instante */
-  list.addEventListener("change", e => {
-    const key = e.target.dataset.key;
-    if (!key) return;
-    if (e.target.checked) saved[key] = 1; else delete saved[key];
-    store.write();
-  });
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-  /* Cargar lo guardado, sincronizar entre pestañas y actualizar al volver a la página */
-  const sync = () => store.read().then(d => { saved = d; refresh(); });
-  window.addEventListener("storage", e => { if (e.key === STORAGE_KEY) sync(); });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 
-  const trashDays = Object.keys(TRASH_TASKS).map(o => DAY_NAMES[o]).join(" y ");
-  $("sub").textContent = `Basura: ${trashDays}, antes de las ${DEADLINE}`;
-  $("warn").hidden = store.ok;
-  refresh();  // muestra el calendario enseguida
-  sync();     // y aplica las casillas guardadas
-})();
-</script>
+    /* =========================================================
+       SUPABASE
+       ========================================================= */
+
+    const SUPABASE_URL = "https://irlgbidgxlbtocwrdmkd.supabase.co";
+
+    const SUPABASE_KEY =
+      "sb_publishable_S7aoT2t9KrmjqMnhvwhGkw_RHxJ8kMX";
+
+    const supabase = createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+
+    /* =========================================================
+       CONFIGURACIÓN ORIGINAL
+       ========================================================= */
+
+    const NAMES = [
+      "MIGUEL",
+      "ADONIS",
+      "VALERIA",
+      "KEYLA"
+    ];
+
+    const START_DATE = "2026-10-05";
+    const END_DATE = "2030-12-31";
+
+    const DEADLINE = "11:00 a.m.";
+
+    const DAY_NAMES = [
+      "Lunes",
+      "Martes",
+      "Miércoles",
+      "Jueves",
+      "Viernes",
+      "Sábado",
+      "Domingo"
+    ];
+
+    const TRASH_TASKS = {
+      0: [
+        ["sacada", "Basura sacada"]
+      ],
+
+      3: [
+        ["sacada", "Basura sacada"],
+        ["reciclaje", "Reciclaje sacado"],
+        ["lavado", "Basurero lavado"]
+      ]
+    };
+
+    const CLEAN_DAYS = [
+      0,
+      2,
+      4
+    ];
+
+    const CLEAN_TASK = [
+      "limpieza",
+      "Barrer y limpiar"
+    ];
+
+    const SPECIAL = {
+      weeks: [
+        "2026-10-05",
+        "2026-10-12"
+      ],
+      name: "VALERIA",
+      text: "VALERIA - ESTA SEMANA NO PORQUE ESTA TRISTE"
+    };
+
+    const WEEKS_PER_STEP = 2;
+
+
+    /* =========================================================
+       VARIABLES
+       ========================================================= */
+
+    const calendario = document.getElementById("calendario");
+    const estado = document.getElementById("estado");
+    const btnSiguiente = document.getElementById("btnSiguiente");
+
+    let semanas = [];
+    let semanaActual = 0;
+
+    let marcadas = new Set();
+
+
+    /* =========================================================
+       FECHAS
+       ========================================================= */
+
+    function fechaLocal(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    }
+
+    function crearFecha(fecha) {
+      const [y, m, d] = fecha.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function sumarDias(date, cantidad) {
+      const nueva = new Date(date);
+      nueva.setDate(nueva.getDate() + cantidad);
+      return nueva;
+    }
+
+    function formatearFecha(date) {
+      return date.toLocaleDateString("es-CR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      });
+    }
+
+
+    /* =========================================================
+       GENERAR SEMANAS
+       ========================================================= */
+
+    function generarSemanas() {
+
+      semanas = [];
+
+      let inicio = crearFecha(START_DATE);
+      const final = crearFecha(END_DATE);
+
+      let indiceSemana = 0;
+
+      while (inicio <= final) {
+
+        const fin = sumarDias(inicio, 6);
+
+        semanas.push({
+          inicio: new Date(inicio),
+          fin: new Date(fin),
+          indice: indiceSemana
+        });
+
+        inicio = sumarDias(inicio, 7);
+        indiceSemana++;
+      }
+    }
+
+
+    /* =========================================================
+       ENCARGADOS
+       ========================================================= */
+
+    function obtenerEncargadoBasura(indice) {
+
+      const fecha = fechaLocal(
+        semanas[indice].inicio
+      );
+
+      const especial = SPECIAL.weeks.includes(fecha);
+
+      if (especial) {
+        return SPECIAL.name;
+      }
+
+      return NAMES[indice % NAMES.length];
+    }
+
+    function obtenerEncargadoLimpieza(indice, posicion) {
+
+      return NAMES[
+        (indice + 1 + posicion) % NAMES.length
+      ];
+    }
+
+
+    /* =========================================================
+       CLAVES ÚNICAS
+       ========================================================= */
+
+    function crearClave(fecha, tipo, tarea) {
+
+      return `${fecha}|${tipo}|${tarea}`;
+    }
+
+
+    /* =========================================================
+       CARGAR DATOS DESDE SUPABASE
+       ========================================================= */
+
+    async function cargarMarcadas() {
+
+      estado.textContent = "Sincronizando...";
+
+      const { data, error } = await supabase
+        .from("calendario_basura")
+        .select("clave, marcada");
+
+      if (error) {
+
+        console.error(error);
+
+        estado.textContent =
+          "Error de conexión con la base de datos.";
+
+        return;
+      }
+
+      marcadas = new Set(
+        (data || [])
+          .filter(item => item.marcada === true)
+          .map(item => item.clave)
+      );
+
+      estado.textContent =
+        "Sincronizado ✓";
+
+      actualizarCheckboxes();
+    }
+
+
+    /* =========================================================
+       GUARDAR CAMBIO
+       ========================================================= */
+
+    async function cambiarEstado(clave, marcada) {
+
+      if (marcada) {
+
+        marcadas.add(clave);
+
+        const { error } = await supabase
+          .from("calendario_basura")
+          .upsert(
+            {
+              clave: clave,
+              marcada: true
+            },
+            {
+              onConflict: "clave"
+            }
+          );
+
+        if (error) {
+
+          console.error(error);
+
+          marcadas.delete(clave);
+
+          actualizarCheckboxes();
+
+          alert(
+            "No se pudo guardar el cambio."
+          );
+
+          return;
+        }
+
+      } else {
+
+        marcadas.delete(clave);
+
+        const { error } = await supabase
+          .from("calendario_basura")
+          .delete()
+          .eq("clave", clave);
+
+        if (error) {
+
+          console.error(error);
+
+          marcadas.add(clave);
+
+          actualizarCheckboxes();
+
+          alert(
+            "No se pudo guardar el cambio."
+          );
+
+          return;
+        }
+      }
+
+      estado.textContent =
+        "Guardado ✓";
+    }
+
+
+    /* =========================================================
+       ACTUALIZAR CHECKBOXES
+       ========================================================= */
+
+    function actualizarCheckboxes() {
+
+      document
+        .querySelectorAll("input[data-clave]")
+        .forEach(input => {
+
+          const clave = input.dataset.clave;
+
+          input.checked =
+            marcadas.has(clave);
+        });
+    }
+
+
+    /* =========================================================
+       CREAR TAREA
+       ========================================================= */
+
+    function crearTarea(
+      fecha,
+      tipo,
+      tareaId,
+      texto
+    ) {
+
+      const clave =
+        crearClave(
+          fecha,
+          tipo,
+          tareaId
+        );
+
+      const label =
+        document.createElement("label");
+
+      label.className = "tarea";
+
+      label.innerHTML = `
+        <input
+          type="checkbox"
+          data-clave="${clave}"
+        >
+        <span class="check"></span>
+        <span class="texto-tarea">${texto}</span>
+      `;
+
+      const input =
+        label.querySelector("input");
+
+      input.checked =
+        marcadas.has(clave);
+
+      input.addEventListener(
+        "change",
+        () => {
+
+          cambiarEstado(
+            clave,
+            input.checked
+          );
+
+        }
+      );
+
+      return label;
+    }
+
+
+    /* =========================================================
+       MOSTRAR CALENDARIO
+       ========================================================= */
+
+    function renderCalendario() {
+
+      calendario.innerHTML = "";
+
+      semanas.forEach(
+        (semana, indice) => {
+
+          const semanaDiv =
+            document.createElement("section");
+
+          semanaDiv.className = "semana";
+
+          semanaDiv.dataset.indice =
+            indice;
+
+          semanaDiv.id =
+            `semana-${indice}`;
+
+          const fechaInicio =
+            fechaLocal(
+              semana.inicio
+            );
+
+          const especial =
+            SPECIAL.weeks.includes(
+              fechaInicio
+            );
+
+          semanaDiv.innerHTML = `
+            <h2>
+              Semana del
+              ${formatearFecha(semana.inicio)}
+              al
+              ${formatearFecha(semana.fin)}
+            </h2>
+          `;
+
+
+          /* =============================
+             AVISO ESPECIAL
+             ============================= */
+
+          if (especial) {
+
+            const aviso =
+              document.createElement("div");
+
+            aviso.className =
+              "aviso";
+
+            aviso.textContent =
+              SPECIAL.text;
+
+            semanaDiv.appendChild(aviso);
+          }
+
+
+          /* =============================
+             DÍAS
+             ============================= */
+
+          for (
+            let dia = 0;
+            dia < 7;
+            dia++
+          ) {
+
+            const fecha =
+              sumarDias(
+                semana.inicio,
+                dia
+              );
+
+            const fechaTexto =
+              fechaLocal(fecha);
+
+            const diaDiv =
+              document.createElement("div");
+
+            diaDiv.className =
+              "dia";
+
+            const titulo =
+              document.createElement("div");
+
+            titulo.className =
+              "dia-titulo";
+
+            titulo.innerHTML = `
+              <div class="dia-nombre">
+                ${DAY_NAMES[dia]}
+              </div>
+
+              <div class="encargado">
+                Hasta ${DEADLINE}
+              </div>
+            `;
+
+            diaDiv.appendChild(titulo);
+
+
+            /* =============================
+               BASURA
+               ============================= */
+
+            if (TRASH_TASKS[dia]) {
+
+              const encargado =
+                obtenerEncargadoBasura(
+                  indice
+                );
+
+              titulo.querySelector(
+                ".encargado"
+              ).textContent =
+                encargado;
+
+              TRASH_TASKS[dia]
+                .forEach(
+                  ([taskId, texto]) => {
+
+                    diaDiv.appendChild(
+                      crearTarea(
+                        fechaTexto,
+                        "basura",
+                        taskId,
+                        `${texto} — ${encargado}`
+                      )
+                    );
+
+                  }
+                );
+            }
+
+
+            /* =============================
+               LIMPIEZA
+               ============================= */
+
+            if (
+              CLEAN_DAYS.includes(dia)
+            ) {
+
+              const posicion =
+                CLEAN_DAYS.indexOf(dia);
+
+              const encargado =
+                obtenerEncargadoLimpieza(
+                  indice,
+                  posicion
+                );
+
+              diaDiv.appendChild(
+                crearTarea(
+                  fechaTexto,
+                  "limpieza",
+                  CLEAN_TASK[0],
+                  `${CLEAN_TASK[1]} — ${encargado}`
+                )
+              );
+            }
+
+
+            /* Solo agregar días
+               que tengan tareas */
+
+            if (
+              diaDiv.querySelector(
+                "input"
+              )
+            ) {
+
+              semanaDiv.appendChild(
+                diaDiv
+              );
+            }
+
+          }
+
+
+          calendario.appendChild(
+            semanaDiv
+          );
+
+        }
+      );
+
+      actualizarCheckboxes();
+    }
+
+
+    /* =========================================================
+       BOTÓN SIGUIENTE
+       ========================================================= */
+
+    btnSiguiente.addEventListener(
+      "click",
+      () => {
+
+        semanaActual += WEEKS_PER_STEP;
+
+        if (
+          semanaActual >= semanas.length
+        ) {
+
+          semanaActual = 0;
+        }
+
+        const destino =
+          document.getElementById(
+            `semana-${semanaActual}`
+          );
+
+        if (destino) {
+
+          destino.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+        }
+
+      }
+    );
+
+
+    /* =========================================================
+       SINCRONIZACIÓN AUTOMÁTICA
+       ========================================================= */
+
+    setInterval(
+      async () => {
+
+        await cargarMarcadas();
+
+      },
+      2000
+    );
+
+
+    /* =========================================================
+       INICIAR
+       ========================================================= */
+
+    generarSemanas();
+
+    renderCalendario();
+
+    cargarMarcadas();
+
+  </script>
+
 </body>
 </html>
