@@ -16,7 +16,7 @@
       background: #111;
       color: #f5f5f5;
       padding: 20px;
-      padding-bottom: 100px;
+      padding-bottom: 40px;
     }
 
     .container {
@@ -142,28 +142,6 @@
       color: #777;
     }
 
-    .boton-siguiente {
-      position: fixed;
-      bottom: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(88%, 430px);
-      padding: 15px 20px;
-      border: none;
-      border-radius: 12px;
-      background: #f5f5f5;
-      color: #111;
-      font-weight: bold;
-      font-size: 16px;
-      cursor: pointer;
-      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.45);
-      z-index: 100;
-    }
-
-    .boton-siguiente:active {
-      transform: translateX(-50%) scale(0.98);
-    }
-
     .estado {
       text-align: center;
       color: #777;
@@ -201,10 +179,6 @@
 
   </div>
 
-  <button class="boton-siguiente" id="btnSiguiente">
-    Siguiente
-  </button>
-
   <script type="module">
 
     import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
@@ -226,7 +200,7 @@
 
 
     /* =========================================================
-       CONFIGURACIÓN ORIGINAL
+       CONFIGURACIÓN
        ========================================================= */
 
     const NAMES = [
@@ -283,19 +257,27 @@
       text: "VALERIA - ESTA SEMANA NO PORQUE ESTA TRISTE"
     };
 
-    const WEEKS_PER_STEP = 2;
+
+    /* =========================================================
+       PERSONAS PARA LAS DOS SEMANAS ESPECIALES
+       ========================================================= */
+
+    const SPECIAL_NAMES = NAMES.filter(
+      name => name !== SPECIAL.name
+    );
 
 
     /* =========================================================
        VARIABLES
        ========================================================= */
 
-    const calendario = document.getElementById("calendario");
-    const estado = document.getElementById("estado");
-    const btnSiguiente = document.getElementById("btnSiguiente");
+    const calendario =
+      document.getElementById("calendario");
+
+    const estado =
+      document.getElementById("estado");
 
     let semanas = [];
-    let semanaActual = 0;
 
     let marcadas = new Set();
 
@@ -305,30 +287,58 @@
        ========================================================= */
 
     function fechaLocal(date) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
+
+      const year =
+        date.getFullYear();
+
+      const month =
+        String(date.getMonth() + 1)
+          .padStart(2, "0");
+
+      const day =
+        String(date.getDate())
+          .padStart(2, "0");
 
       return `${year}-${month}-${day}`;
     }
 
+
     function crearFecha(fecha) {
-      const [y, m, d] = fecha.split("-").map(Number);
-      return new Date(y, m - 1, d);
+
+      const [y, m, d] =
+        fecha.split("-").map(Number);
+
+      return new Date(
+        y,
+        m - 1,
+        d
+      );
     }
 
+
     function sumarDias(date, cantidad) {
-      const nueva = new Date(date);
-      nueva.setDate(nueva.getDate() + cantidad);
+
+      const nueva =
+        new Date(date);
+
+      nueva.setDate(
+        nueva.getDate() + cantidad
+      );
+
       return nueva;
     }
 
+
     function formatearFecha(date) {
-      return date.toLocaleDateString("es-CR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-      });
+
+      return date.toLocaleDateString(
+        "es-CR",
+        {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric"
+        }
+      );
     }
 
 
@@ -340,14 +350,18 @@
 
       semanas = [];
 
-      let inicio = crearFecha(START_DATE);
-      const final = crearFecha(END_DATE);
+      let inicio =
+        crearFecha(START_DATE);
+
+      const final =
+        crearFecha(END_DATE);
 
       let indiceSemana = 0;
 
       while (inicio <= final) {
 
-        const fin = sumarDias(inicio, 6);
+        const fin =
+          sumarDias(inicio, 6);
 
         semanas.push({
           inicio: new Date(inicio),
@@ -355,44 +369,82 @@
           indice: indiceSemana
         });
 
-        inicio = sumarDias(inicio, 7);
+        inicio =
+          sumarDias(inicio, 7);
+
         indiceSemana++;
       }
     }
 
 
     /* =========================================================
-       ENCARGADOS
+       ENCARGADO DE BASURA
        ========================================================= */
 
     function obtenerEncargadoBasura(indice) {
 
-      const fecha = fechaLocal(
-        semanas[indice].inicio
-      );
+      const fecha =
+        fechaLocal(
+          semanas[indice].inicio
+        );
 
-      const especial = SPECIAL.weeks.includes(fecha);
+      const especial =
+        SPECIAL.weeks.includes(fecha);
 
       if (especial) {
-        return SPECIAL.name;
+
+        return SPECIAL_NAMES[
+          indice % SPECIAL_NAMES.length
+        ];
       }
 
-      return NAMES[indice % NAMES.length];
-    }
-
-    function obtenerEncargadoLimpieza(indice, posicion) {
-
       return NAMES[
-        (indice + 1 + posicion) % NAMES.length
+        indice % NAMES.length
       ];
     }
 
 
     /* =========================================================
-       CLAVES ÚNICAS
+       ENCARGADO DE LIMPIEZA
        ========================================================= */
 
-    function crearClave(fecha, tipo, tarea) {
+    function obtenerEncargadoLimpieza(
+      indice,
+      posicion
+    ) {
+
+      const fecha =
+        fechaLocal(
+          semanas[indice].inicio
+        );
+
+      const especial =
+        SPECIAL.weeks.includes(fecha);
+
+      if (especial) {
+
+        return SPECIAL_NAMES[
+          (indice + 1 + posicion) %
+          SPECIAL_NAMES.length
+        ];
+      }
+
+      return NAMES[
+        (indice + 1 + posicion) %
+        NAMES.length
+      ];
+    }
+
+
+    /* =========================================================
+       CLAVES
+       ========================================================= */
+
+    function crearClave(
+      fecha,
+      tipo,
+      tarea
+    ) {
 
       return `${fecha}|${tipo}|${tarea}`;
     }
@@ -404,11 +456,13 @@
 
     async function cargarMarcadas() {
 
-      estado.textContent = "Sincronizando...";
+      estado.textContent =
+        "Sincronizando...";
 
-      const { data, error } = await supabase
-        .from("calendario_basura")
-        .select("clave, marcada");
+      const { data, error } =
+        await supabase
+          .from("calendario_basura")
+          .select("clave, marcada");
 
       if (error) {
 
@@ -420,11 +474,16 @@
         return;
       }
 
-      marcadas = new Set(
-        (data || [])
-          .filter(item => item.marcada === true)
-          .map(item => item.clave)
-      );
+      marcadas =
+        new Set(
+          (data || [])
+            .filter(
+              item => item.marcada === true
+            )
+            .map(
+              item => item.clave
+            )
+        );
 
       estado.textContent =
         "Sincronizado ✓";
@@ -437,23 +496,27 @@
        GUARDAR CAMBIO
        ========================================================= */
 
-    async function cambiarEstado(clave, marcada) {
+    async function cambiarEstado(
+      clave,
+      marcada
+    ) {
 
       if (marcada) {
 
         marcadas.add(clave);
 
-        const { error } = await supabase
-          .from("calendario_basura")
-          .upsert(
-            {
-              clave: clave,
-              marcada: true
-            },
-            {
-              onConflict: "clave"
-            }
-          );
+        const { error } =
+          await supabase
+            .from("calendario_basura")
+            .upsert(
+              {
+                clave: clave,
+                marcada: true
+              },
+              {
+                onConflict: "clave"
+              }
+            );
 
         if (error) {
 
@@ -474,10 +537,11 @@
 
         marcadas.delete(clave);
 
-        const { error } = await supabase
-          .from("calendario_basura")
-          .delete()
-          .eq("clave", clave);
+        const { error } =
+          await supabase
+            .from("calendario_basura")
+            .delete()
+            .eq("clave", clave);
 
         if (error) {
 
@@ -507,10 +571,13 @@
     function actualizarCheckboxes() {
 
       document
-        .querySelectorAll("input[data-clave]")
+        .querySelectorAll(
+          "input[data-clave]"
+        )
         .forEach(input => {
 
-          const clave = input.dataset.clave;
+          const clave =
+            input.dataset.clave;
 
           input.checked =
             marcadas.has(clave);
@@ -539,7 +606,8 @@
       const label =
         document.createElement("label");
 
-      label.className = "tarea";
+      label.className =
+        "tarea";
 
       label.innerHTML = `
         <input
@@ -551,7 +619,9 @@
       `;
 
       const input =
-        label.querySelector("input");
+        label.querySelector(
+          "input"
+        );
 
       input.checked =
         marcadas.has(clave);
@@ -584,15 +654,16 @@
         (semana, indice) => {
 
           const semanaDiv =
-            document.createElement("section");
+            document.createElement(
+              "section"
+            );
 
-          semanaDiv.className = "semana";
-
-          semanaDiv.dataset.indice =
-            indice;
+          semanaDiv.className =
+            "semana";
 
           semanaDiv.id =
             `semana-${indice}`;
+
 
           const fechaInicio =
             fechaLocal(
@@ -604,12 +675,17 @@
               fechaInicio
             );
 
+
           semanaDiv.innerHTML = `
             <h2>
               Semana del
-              ${formatearFecha(semana.inicio)}
+              ${formatearFecha(
+                semana.inicio
+              )}
               al
-              ${formatearFecha(semana.fin)}
+              ${formatearFecha(
+                semana.fin
+              )}
             </h2>
           `;
 
@@ -621,7 +697,9 @@
           if (especial) {
 
             const aviso =
-              document.createElement("div");
+              document.createElement(
+                "div"
+              );
 
             aviso.className =
               "aviso";
@@ -629,7 +707,9 @@
             aviso.textContent =
               SPECIAL.text;
 
-            semanaDiv.appendChild(aviso);
+            semanaDiv.appendChild(
+              aviso
+            );
           }
 
 
@@ -653,13 +733,18 @@
               fechaLocal(fecha);
 
             const diaDiv =
-              document.createElement("div");
+              document.createElement(
+                "div"
+              );
 
             diaDiv.className =
               "dia";
 
+
             const titulo =
-              document.createElement("div");
+              document.createElement(
+                "div"
+              );
 
             titulo.className =
               "dia-titulo";
@@ -674,7 +759,9 @@
               </div>
             `;
 
-            diaDiv.appendChild(titulo);
+            diaDiv.appendChild(
+              titulo
+            );
 
 
             /* =============================
@@ -739,7 +826,7 @@
             }
 
 
-            /* Solo agregar días
+            /* Solo mostrar días
                que tengan tareas */
 
             if (
@@ -752,53 +839,17 @@
                 diaDiv
               );
             }
-
           }
 
 
           calendario.appendChild(
             semanaDiv
           );
-
         }
       );
 
       actualizarCheckboxes();
     }
-
-
-    /* =========================================================
-       BOTÓN SIGUIENTE
-       ========================================================= */
-
-    btnSiguiente.addEventListener(
-      "click",
-      () => {
-
-        semanaActual += WEEKS_PER_STEP;
-
-        if (
-          semanaActual >= semanas.length
-        ) {
-
-          semanaActual = 0;
-        }
-
-        const destino =
-          document.getElementById(
-            `semana-${semanaActual}`
-          );
-
-        if (destino) {
-
-          destino.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-          });
-        }
-
-      }
-    );
 
 
     /* =========================================================
