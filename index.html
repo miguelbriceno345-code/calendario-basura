@@ -38,9 +38,9 @@
   .week-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h2 { font-size: 1rem; font-weight: 600; }
   .tag { font-size: .72rem; background: #2a2a30; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
-  .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .roles { margin-top: 14px; }
   .label { color: var(--muted); font-size: .85rem; }
-  .owner { font-size: 1.3rem; font-weight: 700; letter-spacing: .05em; }
+  .owner { font-size: 1.6rem; font-weight: 700; letter-spacing: .05em; }
 
   .day { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px; margin-top: 12px; }
   .day-top { display: flex; justify-content: space-between; align-items: baseline; }
@@ -117,11 +117,17 @@
   const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const TRASH_TASKS = {              // día de la semana (0 = lunes) -> casillas [id, texto]
     0: [["sacada", "Basura sacada"]],
-    3: [["sacada", "Basura sacada"], ["reciclaje", "Reciclaje sacado también"], ["lavado", "Basurero lavado"]]
+    3: [["sacada", "Basura sacada"], ["reciclaje", "Reciclaje sacado"], ["lavado", "Basurero lavado"]]
   };
-  const CLEAN_DAYS = [0, 2, 4, 6];   // limpieza de abajo, día por medio: lunes, miércoles, viernes y domingo
+  // Limpieza de abajo, día por medio: una persona distinta por día, siempre las que NO sacan la basura esa semana.
+  // El orden rota cada semana (necesita menos días de limpieza que nombres).
+  const CLEAN_DAYS = [0, 2, 4];      // lunes, miércoles y viernes
   const CLEAN_TASK = ["limpieza", "Barrer y limpiar"];
-  const CLEAN_SHIFT = 1;             // limpia el siguiente nombre de la lista (nunca el mismo que saca la basura)
+
+  // Textos especiales: en las semanas indicadas (lunes de cada una) el nombre se muestra con otro texto
+  const SPECIAL = [
+    { weeks: ["2026-10-05", "2026-10-12"], name: "VALERIA", text: "VALERIA - ESTA SEMANA NO PORQUE ESTA TRISTE" }
+  ];
 
   const WEEKS_PER_STEP = 2;          // semanas visibles al inicio y cada vez que se pulsa "Siguiente"
   const STORAGE_KEY = "calendario-basura-v1";
@@ -139,7 +145,6 @@
   const START = n0 - ((n0 + 3) % 7);            // se ajusta al lunes de esa semana
   const END = toNum(END_DATE);
   const LAST = Math.floor((END - START) / 7);   // índice de la última semana
-  const SHIFT = CLEAN_SHIFT % NAMES.length || 1;
   const OFFSETS = [...new Set([...Object.keys(TRASH_TASKS).map(Number), ...CLEAN_DAYS])].sort((a, b) => a - b);
 
   /* Cada semana se calcula solo cuando se necesita (no se guarda el calendario completo) */
@@ -149,7 +154,7 @@
       start: mon,
       end: mon + 6,
       trash: NAMES[i % NAMES.length],
-      clean: NAMES[(i + SHIFT) % NAMES.length],
+      clean: CLEAN_DAYS.map((_, j) => NAMES[(i + 1 + j) % NAMES.length]),
       days: OFFSETS.map(o => mon + o).filter(d => d <= END)
     };
   };
@@ -189,10 +194,16 @@
     `<label class="check"><input type="checkbox" data-key="${key}"${saved[key] ? " checked" : ""}>` +
     `<span class="pill"><span class="box"></span>${text}</span></label>`;
 
+  /* Nombre a mostrar (con el texto especial si corresponde a esa semana) */
+  const shownName = (name, mon) => {
+    const s = SPECIAL.find(x => x.name === name && x.weeks.includes(toISO(mon)));
+    return esc(s ? s.text : name);
+  };
+
   const task = (kind, owner, boxes, date) => `
     <div class="task">
       <p class="kind">${kind}</p>
-      <p class="who">Responsable: <b>${esc(owner)}</b></p>
+      <p class="who">Responsable: <b>${owner}</b></p>
       <div class="checks">${boxes.map(([id, text]) => check(`${toISO(date)}:${id}`, text)).join("")}</div>
     </div>`;
 
@@ -201,8 +212,8 @@
     return `
       <section class="day">
         <div class="day-top"><h3>${DAY_NAMES[o]}</h3><span>${fmt(d)}</span></div>
-        ${TRASH_TASKS[o] ? task(`Basura, antes de las ${DEADLINE}`, w.trash, TRASH_TASKS[o], d) : ""}
-        ${CLEAN_DAYS.includes(o) ? task("Limpieza de abajo", w.clean, [CLEAN_TASK], d) : ""}
+        ${TRASH_TASKS[o] ? task(`Basura, antes de las ${DEADLINE}`, shownName(w.trash, w.start), TRASH_TASKS[o], d) : ""}
+        ${CLEAN_DAYS.includes(o) ? task("Limpieza de abajo", shownName(w.clean[CLEAN_DAYS.indexOf(o)], w.start), [CLEAN_TASK], d) : ""}
       </section>`;
   };
 
@@ -215,8 +226,8 @@
           ${now ? '<span class="tag">Semana actual</span>' : ""}
         </div>
         <div class="roles">
-          <div><p class="label">Responsable de basura:</p><p class="owner">${esc(w.trash)}</p></div>
-          <div><p class="label">Responsable de limpieza:</p><p class="owner">${esc(w.clean)}</p></div>
+          <p class="label">Responsable de basura:</p>
+          <p class="owner">${shownName(w.trash, w.start)}</p>
         </div>
         ${w.days.map(d => day(d, w)).join("")}
       </article>`;
