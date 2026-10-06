@@ -21,6 +21,7 @@
   header { text-align: center; margin-bottom: 22px; }
   h1 { font-size: 1.7rem; letter-spacing: -.02em; }
   .sub { color: var(--muted); font-size: .9rem; margin-top: 6px; }
+  .nota { color: var(--text); }
 
   #calendario { display: grid; gap: 16px; }
   .semana { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
@@ -68,6 +69,7 @@
   <header>
     <h1>Tareas Apartamento 15</h1>
     <p class="sub" id="sub"></p>
+    <p class="sub nota">No sacar la basura el día antes.</p>
     <p class="estado" id="estado">Conectando...</p>
   </header>
   <section id="calendario"></section>
@@ -85,15 +87,16 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const NAMES = ["MIGUEL", "ADONIS", "VALERIA", "KEYLA"];
 const START_DATE = "2026-10-05";   // lunes de la semana 1
 const END_DATE = "2030-12-31";
-const DEADLINE = "11:00 a.m.";
+const DEADLINE = "8:00 a.m.";
 const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
 const TRASH_TASKS = {              // día (0 = lunes) -> casillas [id, texto]
-  0: [["sacada", "Basura sacada"]],
-  3: [["sacada", "Basura sacada"], ["reciclaje", "Reciclaje sacado"], ["lavado", "Basurero lavado"]]
+  1: [["sacada", "Basura sacada"]],
+  4: [["sacada", "Basura sacada"], ["lavado", "Basurero lavado"]]
 };
 const CLEAN_DAYS = [0, 2, 4];      // lunes, miércoles y viernes
 const CLEAN_TASK = ["limpieza", "Barrer y limpiar"];
+const RECYCLING = { day: 2, task: ["reciclaje", "Reciclaje sacado"] };   // miércoles: lo saca quien limpia ese día
 
 /* En estas semanas (lunes de cada una) esa persona queda fuera de la rotación */
 const SPECIAL = { weeks: ["2026-10-05", "2026-10-12"], name: "VALERIA" };
@@ -202,7 +205,9 @@ function renderCalendario() {
       const grupos = [];
       if (TRASH_TASKS[d]) grupos.push(crearGrupo("Basura", encargadoBasura(s), f, "basura", TRASH_TASKS[d]));
       if (CLEAN_DAYS.includes(d)) {
-        grupos.push(crearGrupo("Limpieza de abajo", encargadoLimpieza(s, CLEAN_DAYS.indexOf(d)), f, "limpieza", [CLEAN_TASK]));
+        const reciclaje = d === RECYCLING.day;   // quien limpia ese día también saca el reciclaje
+        grupos.push(crearGrupo(reciclaje ? "Limpieza de abajo y reciclaje" : "Limpieza de abajo",
+          encargadoLimpieza(s, CLEAN_DAYS.indexOf(d)), f, "limpieza", reciclaje ? [CLEAN_TASK, RECYCLING.task] : [CLEAN_TASK]));
       }
       if (!grupos.length) continue;   // solo días con tareas
       const dia = document.createElement("div");
